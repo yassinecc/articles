@@ -18,11 +18,7 @@ Credit card data is very sensitive information so you won't be handling card num
 
 * Create your account on www.stripe.com. In the `Developer` tab, you will see two API keys: a publishable one for your frontend and a secret one for your back-end.
 
-{% hint style='info' %}
-
-You can share your publishable key with confidence as it can only create card tokens. On the other hand, the secret key will handle sensitive operations such as payment, refunds and so on. Store it securely in your server and avoid if possible committing it in versioned source code.
-
-{% endhint %}
+> You can share your publishable key with confidence as it can only create card tokens. On the other hand, the secret key will handle sensitive operations such as payment, refunds and so on. Store it securely in your server and avoid if possible committing it in versioned source code.
 
 * A React Native mobile app
 
@@ -36,7 +32,7 @@ In the directory where your `package.json` is located, install the node package 
 yarn add stripe
 ```
 
-The idea is to expose a POST route that will handle payment on the server side. Let's declare a payment route in our Express server:
+The idea is to expose a POST route that will handle payment on the server side. Let's declare a payment route in our Express server that takes two arguments, `amount` and `tokenId`:
 
 ```js
 const express = require('express');
@@ -290,7 +286,7 @@ The implementation of a customer database is outside the scope of this article, 
 
 ### Two-step payment process
 
-We went through how to make payments in a bipolar setting, where your frontend requests the payment with a token, and your back-end processes this payment. But what happens when your app/server system is coupled to another system, for instance a third-party booking database. We had this situation with one of our clients who expressed the following needs:
+We went through how to make payments in a bipolar setting, where your frontend requests the payment with a token, and your back-end processes this payment. But what happens when your app/server system is coupled to another system, for instance a third-party booking database? We came across this situation with one of our clients who expressed the following needs:
 
 1) I want to record a new booking in my 3rd party database before you record it in the application's back-end.
 2) I want to record in my 3rd party database only bookings for which payment is successful i.e. the funds are available and the transaction is authorized by the bank.
