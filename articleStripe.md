@@ -208,11 +208,12 @@ app.post('/api/doPayment/', (req, res) => {
   })
   .then(customer => {
     stripe.charges.create({
-    amount: req.body.amount, // Unit: cents
-    currency: 'eur',
-    capture: true,
-    customer: customer.id
-    source: customer.default_source.id,
+      amount: req.body.amount, // Unit: cents
+      currency: 'eur',
+      capture: true,
+      customer: customer.id
+      source: customer.default_source.id,
+    })
   })
   .then(result => res.status(200).json(result))
 });
@@ -226,4 +227,80 @@ You should now see on your Stripe dashboard new payments connected to a customer
 
 {% endhint %}
 
-Try this a couple of times then head to the `Customers` section of your Stripe dashboard. You will notice that there are as many customers created as the number of calls to `customers.create` you made. There is no unicity constraint on the email value passed.
+Try this a couple of times then head to the `Customers` section of your Stripe dashboard. You will notice that there are as many customers created as the number of calls to `customers.create` you made. There is no unicity constraint on the email value passed. A solution is to create a Stripe customer the first time a user initiates a payment, store its customer ID locally in a database and retrieve this when you initiate another payment with the same user.
+
+Because most payment solutions are implement in a scenario where a user is authenticated, a good practice to recover the Stripe customer ID is to pass an access token to the request that is sent to the user and recover the user from this access token. Your `doPayment` route should look like this in the case of a recurring payment:
+
+```
+app.post('/api/doPayment/', (req, res) => {
+  let databaseUser = null
+  return getDbUser(req.accessToken) // Some method to get a user from the database
+  .then(dbUser => {
+    databaseUser = dbUser
+    return stripe.customers
+      .createSource(databaseUser.stripeCustomerId, { source: req.body.tokenId })
+  }) // This Stripe service returns a source object
+  .then(newSource => {
+    return stripe.customers
+      .update(databaseUser.stripeCustomerId, { default_source: newSource.id })
+  }) // This Stripe service returns a customer object
+  .then(stripeCustomer => {
+    return stripe.charges.create({
+      amount: req.body.amount, // Unit: cents
+      currency: 'eur',
+      capture: true,
+      customer: stripeCustomer.id
+      source: stripeCustomer.default_source.id,
+    })
+  })
+  .then(result => res.status(200).json(result))
+});
+```
+
+To cover both cases, you can factor the logic retrieving a Stripe customer in a separate function:
+
+```
+findOrCreateStripeCustomer = (dbUser, tokenId) => {
+  if(!!dbUser.stripeCustomerId) {
+    return return stripe.customers
+      .createSource(dbUser.stripeCustomerId, { source: tokenId })
+  }) // This Stripe service returns a source object
+  .then(newSource => {
+    return stripe.customers
+      .update(dbUser.stripeCustomerId, { default_source: newSource.id })
+  })
+  } else { // First payment
+    return stripe.customers.create({
+      email: dbUser.email,
+      source: tokenId
+    })
+  }
+}
+```
+
+The `doPayment` route becomes:
+
+```
+app.post('/api/doPayment/', (req, res) => {
+  return getDbUser(req.accessToken) // Some method to get a user from the database
+  .then(dbUser => {
+    findOrCreateStripeCustomer(dbUser, req.body.tokenId)
+  }) // This Stripe service returns a customer object
+  .then(stripeCustomer => {
+    saveDbUser(stripeCustomer.id) // Save your Stripe customer ID for the next time
+    return stripe.charges.create({
+      amount: req.body.amount, // Unit: cents
+      currency: 'eur',
+      capture: true,
+      customer: stripeCustomer.id
+      source: stripeCustomer.default_source.id,
+    })
+  })
+  .then(result => res.status(200).json(result))
+});
+```
+
+The implementation of a customer database is outside the scope of this article, but you can easily implement a PostgreSQL + Sequelize setup and try out payments with the `findOrCreateStripeCustomer` logic
+
+Check: You can have all payments linked to one customer
+
