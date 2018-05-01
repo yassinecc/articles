@@ -8,11 +8,7 @@ Credit card data is very sensitive information so you won't be handling card num
 
 * A **charge** is a transaction record for an amount to be debited from a given credit card. Stripe has implemented a two-step payment flow by allowing users to create uncaptured charges, where Stripe checks with your bank if there are sufficient funds available to carry the transaction and requests to put in on hold for an upcoming payment, and then capturing them which amounts to debiting your account.
 
-{% hint style='info' %}
-
-The biggest advantage of non-captured charges is that you are guaranteed payment as the bank has confirmed availability of the funds, but you can also instantly release an uncaptured charge instead of waiting 3~5 days for a refund. Note that Stripe charges a fee for captured charges and refunds but releasing an uncaptured charge is free.
-
-{% endhint %}
+> The biggest advantage of non-captured charges is that you are guaranteed payment as the bank has confirmed availability of the funds, but you can also instantly release an uncaptured charge instead of waiting 3~5 days for a refund. Note that Stripe charges a fee for captured charges and refunds but releasing an uncaptured charge is free.
 
 * A **customer** is the holder of one or multiple means of payment.
 
@@ -68,11 +64,17 @@ app.post('/api/doPayment/', (req, res) => {
 
 The amount to charge is specified in cents for payments in decimal currencies, i.e. you can divide a euro in 100 cents. Replace `$STRIPE_SECRET_KEY` with the secret key you can view on https://dashboard.stripe.com/account/apikeys. As mentioned before, a better practice is to import the secret key from an untracked file.
 
-{% hint style='check' %}
-
-Go to THIS STRIPE PAGE to generate a Stripe token with your publishable key, and then try out your route with Postman:
-
-{% endhint %}
+> Go to https://stripe.com/docs to generate a Stripe token with your publishable key, and then try out your route with Postman. You can also generate a token using cURL in your terminal:
+> 
+> ```
+> $ curl -silent https://api.stripe.com/v1/tokens \
+>  -u $YOUR_PUBLIC_KEY: \
+>  -d card[number]=4242424242424242 \
+>  -d card[exp_month]=12 \
+>  -d card[exp_year]=2019 \
+>  -d card[cvc]=123 | grep tok_
+>```
+> Be sure to replace $YOUR_PUBLIC_KEY by the publishable key from your Stripe dashboard.
 
 ### Preparing the front end
 
@@ -81,7 +83,7 @@ There are two options at this point:
 * Use the iOS / Android SDKs provided by Stripe
 * Use a 3rd party library for React Native: `tipsi-stripe`
 
-There are pros and cons to each path, mainly revolving around the fact that the React Native library from Tipsi has not been publicly approved by Stripe, although you can see into its source code that it does act as a wrapper around Stripe's mobile SDKs. There are rumours going around about Stripe possibly releasing its own official React Native module, however this has not been confirmed. In the rest of this tutorial we are going to use the `tipsi-stripe` library.
+There are pros and cons to each path, mainly revolving around the fact that the React Native library from Tipsi has not been publicly approved by Stripe. For maximum compliance in production environments, we recommend using Stripe's fully vetted SDKs as we did in https://github.com/bamlab/react-native-stripe. In the rest of this tutorial we are going to use the `tipsi-stripe` library.
 
 Navigate to your application's root directory and install the package:
 
@@ -136,11 +138,7 @@ class Payment extends Component {
 }
 ```
 
-{% hint style='check %}
-
-You can now generate tokens with your own publishable key and see them in your console. You will be the only one able to create a charge from this token with your secret key.
-
-{% endhint %}
+> You can now generate tokens with your own publishable key and see them in your console. You will be the only one able to create a charge from this token with your secret key.
 
 We will now connect our front-end and our back-end. I like to group all my API calls in a separate `api.js` file:
 
@@ -187,11 +185,7 @@ requestPayment = () => {
   }
 ```
 
-{% hint style='check' %}
-
-You should now see your first 1€ payment on the Stripe dashboard
-
-{% endhint %}
+> You should now see your first 1€ payment on the Stripe dashboard
 
 ### Grouping charges by customer
 
@@ -219,11 +213,7 @@ app.post('/api/doPayment/', (req, res) => {
 
 The customer object returned from the first Stripe call has a `default_source` object which is in this case a card object on which the payment will be charged. Now that we are not using a token, we also need to pass the customer's Stripe ID as a reference for the payment to be successful.
 
-{% hint style='check %}
-
-You should now see on your Stripe dashboard new payments connected to a customer whose email is test@test.com
-
-{% endhint %}
+> You should now see on your Stripe dashboard new payments connected to a customer whose email is test@test.com
 
 Try this a couple of times then head to the `Customers` section of your Stripe dashboard. You will notice that there are as many customers created as the number of calls to `customers.create` you made. There is no uniqueness constraint on the email value passed. A solution is to create a Stripe customer the first time a user initiates a payment, store its customer ID locally in a database and retrieve this when you initiate another payment with the same user.
 
@@ -298,7 +288,7 @@ app.post('/api/doPayment/', (req, res) => {
 
 The implementation of a customer database is outside the scope of this article, but you can easily implement PostgreSQL + Sequelize and try out payments with the `findOrCreateStripeCustomer` logic
 
-Check: You can have all payments linked to one customer
+> Now all payments linked to one customer are grouped in the Stripe dashboard
 
 ### Two-step payment process
 
@@ -358,7 +348,7 @@ app.post('/api/doPayment/', (req, res) => {
 });
 ```
 
-Check: by commenting the relevant line in `doExternalCheck` and making a payment, you should see captured or released charges on your Stripe dashboard.
+> By commenting the relevant line in `doExternalCheck` and making a payment, you should see captured or released charges on your Stripe dashboard.
 
 A few notes concerning the two-step payment flow:
 
