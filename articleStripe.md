@@ -60,7 +60,6 @@ app.post('/api/doPayment/', (req, res) => {
   return stripe.charges.create({
     amount: req.body.amount, // Unit: cents
     currency: 'eur',
-    capture: true,
     source: req.body.tokenId,
   })
   .then(result => res.status(200).json(result))
@@ -210,7 +209,6 @@ app.post('/api/doPayment/', (req, res) => {
     stripe.charges.create({
       amount: req.body.amount, // Unit: cents
       currency: 'eur',
-      capture: true,
       customer: customer.id
       source: customer.default_source.id,
     })
@@ -227,7 +225,7 @@ You should now see on your Stripe dashboard new payments connected to a customer
 
 {% endhint %}
 
-Try this a couple of times then head to the `Customers` section of your Stripe dashboard. You will notice that there are as many customers created as the number of calls to `customers.create` you made. There is no unicity constraint on the email value passed. A solution is to create a Stripe customer the first time a user initiates a payment, store its customer ID locally in a database and retrieve this when you initiate another payment with the same user.
+Try this a couple of times then head to the `Customers` section of your Stripe dashboard. You will notice that there are as many customers created as the number of calls to `customers.create` you made. There is no uniqueness constraint on the email value passed. A solution is to create a Stripe customer the first time a user initiates a payment, store its customer ID locally in a database and retrieve this when you initiate another payment with the same user.
 
 Because most payment solutions are implement in a scenario where a user is authenticated, a good practice to recover the Stripe customer ID is to pass an access token to the request that is sent to the user and recover the user from this access token. Your `doPayment` route should look like this in the case of a recurring payment:
 
@@ -248,7 +246,6 @@ app.post('/api/doPayment/', (req, res) => {
     return stripe.charges.create({
       amount: req.body.amount, // Unit: cents
       currency: 'eur',
-      capture: true,
       customer: stripeCustomer.id
       source: stripeCustomer.default_source.id,
     })
@@ -287,11 +284,10 @@ app.post('/api/doPayment/', (req, res) => {
     findOrCreateStripeCustomer(dbUser, req.body.tokenId)
   }) // This Stripe service returns a customer object
   .then(stripeCustomer => {
-    saveDbUser(stripeCustomer.id) // Save your Stripe customer ID for the next time
+    updateDbUser(stripeCustomer.id) // Save your Stripe customer ID for the next time
     return stripe.charges.create({
       amount: req.body.amount, // Unit: cents
       currency: 'eur',
-      capture: true,
       customer: stripeCustomer.id
       source: stripeCustomer.default_source.id,
     })
@@ -304,3 +300,70 @@ The implementation of a customer database is outside the scope of this article, 
 
 Check: You can have all payments linked to one customer
 
+### Two-step payment process
+
+We went through how to make payments in a bipolar setting, where your frontend requests the payment with a token, and your back-end processes this payment. But what happens when your app/server system is coupled to another system, for instance a third-party booking database. We had this situation with one of our clients who expressed the following needs:
+
+1) I want to record a new booking in my 3rd party database before you record it in the application's back-end.
+2) I want to record in my 3rd party database only bookings for which payment is successful i.e. the funds are available and the transaction is authorized by the bank.
+3) If there is an error in posting the booking to the 3rd party database (you never know), it is crucial that the customer is not billed anything and that we don't have to handle refunds.
+
+Point 1 was simple enough to implement, but the other two seemed to conflict one another. What we needed was a way to authorize the payment, put the funds on hold, and effectively perform the transaction **after** posting to the 3rd party database. Fortunately enough, this kind of payment flow is natively supported in Stripe with uncaptured charges.
+
+To this end, we need to the `capture` parameter to the `stripe.charges.create` call we have been using in the `doPayment` route. Let us define a new method:
+
+```js
+authorizePayment = (amount, stripeCustomer) => {
+  return stripe.charges.create({ // Return a charge object
+      amount: req.body.amount, // Unit: cents
+      currency: 'eur',
+      capture: false,
+      customer: stripeCustomer.id
+      source: stripeCustomer.default_source.id,
+    })
+}
+```
+
+By setting the `capture` parameter to `false` instead of its default value `true`, this call will tell Stripe to authorize the payment without processing it. We can afterwards perform any necessary external checks and capture or release (refund) the charge:
+
+```js
+doExternalCheck = (stripeCharge, dbUser) => { // A mock for an API call
+  return Promise.resolve('OK')
+  // return Promise.reject(Error('Failed'))
+}
+
+app.post('/api/doPayment/', (req, res) => {
+  return getDbUser(req.accessToken) // Some method to get a user from the database
+  .then(dbUser => {
+    findOrCreateStripeCustomer(dbUser, req.body.tokenId)
+  }) // This Stripe service returns a customer object
+  .then(stripeCustomer => {
+    updateDbUser(stripeCustomer.id) // Save your Stripe customer ID for the next time
+    return authorizePayment(amount, stripeCustomer)
+  })
+  .then(stripeCharge => {
+    return doExternalCheck(stripeCharge, dbUser)
+  })
+  .then(() => {
+    return stripe.charges.capture(stripeCharge.id)
+  })
+  .catch(error => {
+    return stripe.refunds.create({charge: stripeChargeId})
+    .then(() => {
+      return Promise.reject(error)
+    })
+  })
+  .then(result => res.status(200).json(result))
+  .catch(error => res.status(403).json(error))
+});
+```
+
+Check: by commenting the relevant line in `doExternalCheck` and making a payment, you should see captured or released charges on your Stripe dashboard.
+
+A few notes concerning the two-step payment flow:
+
+* Stripe charges a fee for capturing a charge and refunding captured charges. This is another advantage to the delayed capture payment flow: you are only charged for the money you effectively receive!
+
+* You can pass to `stripe.charges.capture` an optional parameter which is less than or equal to the charge's amount. In case of equality, the charge will be fully captured. Otherwise, the remaining amount will be automatically refunded: this means you can only capture a charge once.
+
+* Uncaptured charges can only be fully refunded, otherwise you can partially capture them.
