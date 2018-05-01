@@ -6,9 +6,7 @@ Stripe is a payment SaaS (Software As A Service) that has gained popularity due 
 
 Credit card data is very sensitive information so you won't be handling card numbers and the sort! Instead, you are going to use Stripe objects:
 
-* A **charge** is a transaction record for an amount to be debited from a given credit card. Stripe has implemented a two-step payment flow by allowing users to create uncaptured charges, where Stripe checks with your bank if there are sufficient funds available to carry the transaction and requests to put in on hold for an upcoming payment, and then capturing them which amounts to debiting your account.
-
-> The biggest advantage of non-captured charges is that you are guaranteed payment as the bank has confirmed availability of the funds, but you can also instantly release an uncaptured charge instead of waiting 3~5 days for a refund. Note that Stripe charges a fee for captured charges and refunds but releasing an uncaptured charge is free.
+* A **charge** is a transaction record for an amount to be debited from a given credit card.
 
 * A **customer** is the holder of one or multiple means of payment.
 
@@ -352,8 +350,10 @@ app.post('/api/doPayment/', (req, res) => {
 
 A few notes concerning the two-step payment flow:
 
-* Stripe charges a fee for capturing a charge and refunding captured charges. This is another advantage to the delayed capture payment flow: you are only charged for the money you effectively receive!
+* Stripe charges a fee for capturing a charge and refunding captured charges, while releasing an uncaptured charge is free. This is another advantage to the delayed capture payment flow: you are only charged for the money you effectively receive!
 
 * You can pass to `stripe.charges.capture` an optional parameter which is less than or equal to the charge's amount. In case of equality, the charge will be fully captured. Otherwise, the remaining amount will be automatically refunded: this means you can only capture a charge once.
 
-* Uncaptured charges can only be fully refunded, otherwise you can partially capture them.
+* Uncaptured charges can only be fully released, otherwise you can partially capture them. They also expire after 7 days after their creation and are then fully refunded.
+
+* Capturing a uncaptured charge is always successful as long as the charge has not expired and that the amount to capture is valid. The release operation is instantaneous while a refund might take 3~5 days to take place.
