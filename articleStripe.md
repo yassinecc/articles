@@ -10,7 +10,7 @@ Credit card data is very sensitive information so you won't be handling card num
 
 {% hint style='info' %}
 
-The biggest advantage of uncaptured charges is that you are guaranteed payment as the bank has confirmed availability of the funds, but you can also instantly release an uncaptured charge instead of waiting 3~5 days for a refund. Note that Stripe charges a fee for captured charges and refunds but releasing an uncaptured charge is free.
+The biggest advantage of non-captured charges is that you are guaranteed payment as the bank has confirmed availability of the funds, but you can also instantly release an uncaptured charge instead of waiting 3~5 days for a refund. Note that Stripe charges a fee for captured charges and refunds but releasing an uncaptured charge is free.
 
 {% endhint %}
 
@@ -22,19 +22,19 @@ The biggest advantage of uncaptured charges is that you are guaranteed payment a
 
 ### What you need to get started
 
-* Create your account on www.stripe.com. In the `Developer` tab, you will see two API keys: a publishable one for your frontend and a secret one for your backend.
+* Create your account on www.stripe.com. In the `Developer` tab, you will see two API keys: a publishable one for your frontend and a secret one for your back-end.
 
 {% hint style='info' %}
 
-You can share your publishable key with confidence as it can only create card tokenss. On the other hand, the secret key will handle sensitive operations such as payment, refunds and so on. Store it securely in your server and avoid if possible committing it in versioned source code.
+You can share your publishable key with confidence as it can only create card tokens. On the other hand, the secret key will handle sensitive operations such as payment, refunds and so on. Store it securely in your server and avoid if possible committing it in versioned source code.
 
 {% endhint %}
 
 * A React Native mobile app
 
-* A backend server. We will use Node in this example but bear in mind that Stripe supports a variety of widely used languages such as Python, PHP, Java and .NET.
+* A back-end server. We will use Node in this example but bear in mind that Stripe supports a variety of widely used languages such as Python, PHP, Java and .NET.
 
-### Preparing the backend
+### Preparing the back-end
 
 In the directory where your `package.json` is located, install the node package provided by Stripe:
 
@@ -44,7 +44,7 @@ yarn add stripe
 
 The idea is to expose a POST route that will handle payment on the server side. Let's declare a payment route in our Express server:
 
-```code
+```js
 const express = require('express');
 const app = express();
 const bodyParser = require('body-parser');
@@ -67,7 +67,7 @@ app.post('/api/doPayment/', (req, res) => {
 });
 ```
 
-The amount to charge is specified in cents for payments in currencies that don't have an irreductible unit, i.e. you can divide a euro in 100 cents. Replace `$STRIPE_SECRET_KEY` with the secret key you can view on https://dashboard.stripe.com/account/apikeys. As mentioned before, a better practice is to import the secret key from an untracked file.
+The amount to charge is specified in cents for payments in decimal currencies, i.e. you can divide a euro in 100 cents. Replace `$STRIPE_SECRET_KEY` with the secret key you can view on https://dashboard.stripe.com/account/apikeys. As mentioned before, a better practice is to import the secret key from an untracked file.
 
 {% hint style='check' %}
 
@@ -84,7 +84,7 @@ There are two options at this point:
 
 There are pros and cons to each path, mainly revolving around the fact that the React Native library from Tipsi has not been publicly approved by Stripe, although you can see into its source code that it does act as a wrapper around Stripe's mobile SDKs. There are rumours going around about Stripe possibly releasing its own official React Native module, however this has not been confirmed. In the rest of this tutorial we are going to use the `tipsi-stripe` library.
 
-Navigate to your app's root directory and install the package:
+Navigate to your application's root directory and install the package:
 
 ```
 yarn add tipsi-stripe
@@ -92,7 +92,7 @@ yarn add tipsi-stripe
 
 Let us now create a basic payment page, `payment.js`:
 
-```
+```js
 import React, { Component } from 'react';
 import { View, Button } from 'react-native';
 import stripe from 'tipsi-stripe';
@@ -143,9 +143,9 @@ You can now generate tokens with your own publishable key and see them in your c
 
 {% endhint %}
 
-We will now connect our front-end and our backend. I like to group all my API calls in a separate `api.js` file:
+We will now connect our front-end and our back-end. I like to group all my API calls in a separate `api.js` file:
 
-```
+```js
 import axios from 'axios';
 
 export const doPayment = (amount, tokenId, accessToken) => {
@@ -169,7 +169,7 @@ export const doPayment = (amount, tokenId, accessToken) => {
 
 I used here the axios library that directly rejects the fetch promise if it has a 40X status. Now we can change the `requestPayment` callback in `payment.js`:
 
-```
+```js
 requestPayment = () => {
     this.setState({ isPaymentPending: true });
     return stripe.paymentRequestWithCardForm()
@@ -177,7 +177,7 @@ requestPayment = () => {
         return doPayment(100, stripeTokenInfo.tokenId)
       })
       .then(() => {
-        console.warn('Payment suceeded!')
+        console.warn('Payment succeeded!')
       })
       .catch(error => {
         console.warn('Payment failed', { error });
@@ -198,9 +198,9 @@ You should now see your first 1€ payment on the Stripe dashboard
 
 If you repeat the above example a certain number of times, you will see in your payment history a long list of unrelated charges. If payment is the last step of an authenticated process (as it should be!), this means that you won't be able to associate customers to the payments they have made.
 
-The next step is to charge a specific Stripe `customer` with the payment. We can create a customer with a token using `customers.create({ email: $YOUR_EMAIL, source: $TOKEN_ID, })`. Note that the token will be unusable after that i.e. you won't be able to create a charge with it. Instead, modify your `doPayment` route in the backend:
+The next step is to charge a specific Stripe `customer` with the payment. We can create a customer with a token using `customers.create({ email: $YOUR_EMAIL, source: $TOKEN_ID, })`. Note that the token will be unusable after that i.e. you won't be able to create a charge with it. Instead, modify your `doPayment` route in the back-end:
 
-```
+```js
 app.post('/api/doPayment/', (req, res) => {
   return stripe.customers.create({
     email: 'test@test.com',
@@ -231,7 +231,7 @@ Try this a couple of times then head to the `Customers` section of your Stripe d
 
 Because most payment solutions are implement in a scenario where a user is authenticated, a good practice to recover the Stripe customer ID is to pass an access token to the request that is sent to the user and recover the user from this access token. Your `doPayment` route should look like this in the case of a recurring payment:
 
-```
+```js
 app.post('/api/doPayment/', (req, res) => {
   let databaseUser = null
   return getDbUser(req.accessToken) // Some method to get a user from the database
@@ -259,7 +259,7 @@ app.post('/api/doPayment/', (req, res) => {
 
 To cover both cases, you can factor the logic retrieving a Stripe customer in a separate function:
 
-```
+```js
 findOrCreateStripeCustomer = (dbUser, tokenId) => {
   if(!!dbUser.stripeCustomerId) {
     return return stripe.customers
@@ -280,7 +280,7 @@ findOrCreateStripeCustomer = (dbUser, tokenId) => {
 
 The `doPayment` route becomes:
 
-```
+```js
 app.post('/api/doPayment/', (req, res) => {
   return getDbUser(req.accessToken) // Some method to get a user from the database
   .then(dbUser => {
@@ -300,7 +300,7 @@ app.post('/api/doPayment/', (req, res) => {
 });
 ```
 
-The implementation of a customer database is outside the scope of this article, but you can easily implement a PostgreSQL + Sequelize setup and try out payments with the `findOrCreateStripeCustomer` logic
+The implementation of a customer database is outside the scope of this article, but you can easily implement PostgreSQL + Sequelize and try out payments with the `findOrCreateStripeCustomer` logic
 
 Check: You can have all payments linked to one customer
 
