@@ -2,7 +2,7 @@
 
 Stripe is a payment SaaS (Software As A Service) that has gained popularity due to its ease of use for developers and its turnkey handling of PCI compliance. It provides not only a simple way to implement payments on web and mobile, but also fraud detection mechanisms. We are going to see how to implement Stripe credit card payments from the ground up in React Native using the tipsi-stripe library.
 
-In this article I will show you:
+In this article we will see:
 
 * How to setup your front-end and back-end to make a simple card payment
 * Group your payment with the `customer` object
@@ -14,7 +14,7 @@ Credit card data is very sensitive information so you won't be handling credit c
 
 * A **charge** is a transaction record for an amount to be debited from a given credit card.
 
-* A **token**: this is essentially a representation of your credit card with its information encoded by Stripe using your publishable key. It can only be used once and will be disabled after payment is done.
+* A **token** is essentially a representation of your credit card with its information encoded by Stripe using your publishable key. It can only be used once and will be disabled after payment is done.
 
 * A **customer** is the holder of one or multiple means of payment e.g. sources.
 
@@ -29,8 +29,6 @@ Credit card data is very sensitive information so you won't be handling credit c
 * A React Native mobile application.
 
 * A back-end server. We will use Node in this example but bear in mind that Stripe supports a variety of widely used languages such as Python, PHP, Java and .NET.
-
-* (Optional) Use yarn to install node packages, otherwise run `npm install` instead of `yarn add`
 
 ## Preparing the back-end
 
@@ -50,7 +48,7 @@ const bodyParser = require('body-parser');
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
-const stripe = require('stripe')($STRIPE_SECRET_KEY);
+const stripe = require('stripe')(YOUR_STRIPE_SECRET_KEY);
 
 app.post('/api/doPayment/', (req, res) => {
   return stripe.charges
@@ -66,20 +64,20 @@ app.post('/api/doPayment/', (req, res) => {
 app.listen(5000);
 ```
 
-The amount to charge is specified in cents for payments in decimal currencies, i.e. you can divide a euro in 100 cents. Replace `$STRIPE_SECRET_KEY` with the secret key you can view on https://dashboard.stripe.com/account/apikeys. As mentioned before, a better practice is to import the secret key from an untracked file.
+The amount to charge is specified in cents for payments in decimal currencies, e.g. you can divide a euro in 100 cents. Replace `YOUR_STRIPE_SECRET_KEY` with the secret key you can view on https://dashboard.stripe.com/account/apikeys. As mentioned before, a better practice is to import the secret key from an untracked file.
 
 > Go to https://stripe.com/docs to generate a Stripe token with your publishable key, and then try out your route with Postman. You can also generate a token using cURL in your terminal:
 >
 > ```
 > $ curl -silent https://api.stripe.com/v1/tokens \
->  -u $YOUR_PUBLIC_KEY: \
+>  -u YOUR_STRIPE_PUBLIC_KEY: \
 >  -d card[number]=4242424242424242 \
 >  -d card[exp_month]=12 \
 >  -d card[exp_year]=2019 \
 >  -d card[cvc]=123 | grep tok_
 > ```
 >
-> Be sure to replace $YOUR_PUBLIC_KEY by the publishable key from your Stripe dashboard.
+> Be sure to replace YOUR_STRIPE_PUBLIC_KEY by the publishable key from your Stripe dashboard.
 
 ## Preparing the front end
 
@@ -88,7 +86,7 @@ There are two options at this point:
 * Use the iOS / Android SDKs provided by Stripe
 * Use a 3rd party library for React Native: `tipsi-stripe`
 
-There are pros and cons to each path, mainly revolving around the fact that the React Native library from Tipsi has not been publicly approved by Stripe. For maximum compliance in production environments, we recommend using Stripe's fully vetted SDKs as we did in https://github.com/bamlab/react-native-stripe. In the rest of this tutorial we are going to use the `tipsi-stripe` library.
+There are pros and cons to each path, mainly revolving around the fact that the [React Native library from Tipsi](https://tipsi.github.io/tipsi-stripe/) has not been publicly approved by Stripe. For maximum compliance in production environments, we recommend using Stripe's fully vetted SDKs as we did in https://github.com/bamlab/react-native-stripe. In the rest of this tutorial we are going to use the `tipsi-stripe` library.
 
 Follow the installation and linking procedure on https://tipsi.github.io/tipsi-stripe/docs/installation.html, and then create a basic payment page `payment.js`:
 
@@ -98,7 +96,7 @@ import { View, Button } from 'react-native';
 import stripe from 'tipsi-stripe';
 
 stripe.setOptions({
-  publishableKey: '$YOUR_PUBLIC_KEY',
+  publishableKey: 'YOUR_STRIPE_PUBLIC_KEY',
 });
 
 export default class Payment extends Component {
@@ -137,7 +135,7 @@ const styles = {
 
 > You can now generate tokens with your own publishable key using test cards (cf. https://stripe.com/docs/testing) and see them in your console. You will be the only one able to create a charge from this token with your secret key.
 
-We will now connect our front-end and our back-end. I like to group all my API calls in a separate `api.js` file:
+We will now connect our front-end and our back-end. You can group all API calls in a separate `api.js` file in the React Native app code:
 
 ```js
 import axios from 'axios';
@@ -191,7 +189,7 @@ requestPayment = () => {
 
 If you repeat the above example a certain number of times, you will see in your payment history a long list of unrelated charges. If payment is the last step of an authenticated process (as it should be!), this means that you won't be able to associate customers to the payments they have made.
 
-The next step is to charge a specific Stripe `customer` with the payment. We can create a customer with a token using `customers.create({ email: $YOUR_EMAIL, source: $TOKEN_ID, })`. Note that the token will be unusable after that i.e. you won't be able to create a charge with it. Instead, modify your `doPayment` route in the back-end:
+The next step is to charge a specific Stripe `customer` with the payment. We can create a customer with a token using `customers.create({ email: test@test.com, source: TOKEN_ID, })`. Note that the token will be unusable after that i.e. you won't be able to create a charge with it. Instead, modify your `doPayment` route in the back-end:
 
 ```js
 app.post('/api/doPayment/', (req, res) => {
@@ -289,7 +287,7 @@ app.post('/api/doPayment/', (req, res) => {
 });
 ```
 
-The implementation of a customer database is outside the scope of this article, but you can easily implement PostgreSQL + Sequelize and try out payments with the `findOrCreateStripeCustomer` logic
+The implementation of a customer database is outside the scope of this article, but you can easily use PostgreSQL + Sequelize and try out payments with the `findOrCreateStripeCustomer` logic
 
 > Now all payments linked to one customer are grouped in the Stripe dashboard
 
@@ -297,9 +295,9 @@ The implementation of a customer database is outside the scope of this article, 
 
 We went through how to make payments in a bipolar setting, where your frontend requests the payment with a token, and your back-end processes this payment. But what happens when your app/server system is coupled to another system, for instance a third-party booking database? We came across this situation with one of our clients who expressed the following needs:
 
-1.  I want to record a new booking in my 3rd party database before you record it in the application's back-end.
-2.  I want to record in my 3rd party database only bookings for which payment is successful i.e. the funds are available and the transaction is authorized by the bank.
-3.  If there is an error in posting the booking to the 3rd party database (you never know), it is crucial that the customer is not billed anything and that we don't have to handle refunds.
+1.  I want to record a new booking in my database before you record it in the application's back-end.
+2.  I want to record in my database only bookings for which payment is successful i.e. the funds are available and the transaction is authorized by the bank.
+3.  If there is an error in posting the booking to my database, it is crucial that the customer is not billed anything and that we don't have to handle refunds.
 
 Point 1 was simple enough to implement, but the other two seemed to conflict one another. What we needed was a way to authorize the payment, put the funds on hold, and effectively perform the transaction **after** posting to the 3rd party database. Fortunately enough, this kind of payment flow is natively supported in Stripe with uncaptured charges.
 
