@@ -54,7 +54,38 @@ The code should now look like this:
 The Flutter team has provided an excellent guide on how to setup Sentry on your app [here](https://flutter.dev/docs/cookbook/maintenance/error-reporting) . You can easily setup crash reporting to Sentry with a Dart HTTP Sentry client that has been developed by the Flutter team themselves.
 
 - Get a DSN from sentry.io
-- Follow the guide mentioned above to create the zone and initialize / call the Sentry service
+- Follow the guide mentioned above to create the zone and initialize / call the Sentry service. Your code should look like this:
+
+```diff
+import 'dart:async'
++import 'package:sentry/sentry.dart';
+
++final SentryClient _sentry = new SentryClient(dsn:"EXAMPLE_DSN"); // Replace by your own DSN
++
++Future<Null> _reportError(dynamic error, dynamic stackTrace) async {
++  print('Caught error: $error');
++
++  print('Reporting to Sentry.io...');
++
++  final SentryResponse response = await _sentry.captureException(
++    exception: error,
++    stackTrace: stackTrace,
++  );
++
++  if (response.isSuccessful) {
++    print('Success! Event ID: ${response.eventId}');
++  } else {
++    print('Failed to report to Sentry.io: ${response.error}');
++  }
++}
+
+void main() async {
+  runZoned(() async {
+    runApp(MyApp());
+- }, onError: (error, stackTrace) {/* Handle your error here */});
++ }, onError: _reportError);
+}
+```
 
 You should see something like this on your Sentry dashboard, in this example calling a non-existing native method. Notice that Sentry by default reports events as errors.
 
