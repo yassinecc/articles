@@ -2,14 +2,14 @@
 
 ## Purpose
 
-Flutter has been gaining traction in the mobile dev community and has been lauded for its animation capabilities uses Dart for cross-platform app development. It went from being a playground framework to a seriously considered option for production apps. How does Flutter stand in terms of industrial standards for app development and exploitation?
+Flutter is a Dart-based cross-platform app development framework that has been gaining traction in the mobile dev community and has been lauded for its animation capabilities. It went from being a playground framework to a seriously considered option for production apps. How does Flutter stand in terms of industrial standards for app development and exploitation?
 
 ## TLDR
 
 - You can use Sentry to report errors from your Flutter projects
 - All error reporting services as of today need manual reporting in your Dart code
 - Flutter considers by default all errors as non-fatal
-- Native stack traces are not transmitted to the Dart error handlers
+- Native stack traces are at this date not transmitted to the Dart error handlers
 
 ## Crash reporting at a glance
 
